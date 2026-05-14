@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Flap Ninja Clone</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    margin: 0;
+    overflow: hidden;
+    background: #70c5ce;
+    font-family: Arial, sans-serif;
+}
+canvas { display: block; }
+
+/* SCORE */
+#score {
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 34px;
+    color: white;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px #000;
+    z-index: 3;
+}
+
+/* TOP BUTTONS */
+.top-btn {
+    position: absolute;
+    top: 15px;
+    width: 42px;
+    height: 42px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    cursor: pointer;
+    z-index: 3;
+}
+#pauseBtn { right: 70px; }
+#shareBtn { right: 15px; }
+
+/* GAME OVER SCREEN */
+#gameOverScreen {
+    position: fixed;
+    inset: 0;
+    display: none;
+    text-align: center;
+    color: white;
+    z-index: 4;
+}
+
+#gameOverScreen h1 {
+    margin-top: 120px;
+    font-size: 48px;
+    color: orange;
+}
+
+#scoreBox {
+    background: #f2e8b8;
+    width: 140px;
+    margin: 20px auto;
+    border-radius: 12px;
+    padding: 15px;
+    color: #333;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+#tapRestart {
+    margin-top: 20px;
+    font-size: 22px;
+    font-weight: bold;
+}
+
+/* DEVELOPED BY (ONLY HERE) */
+#devCredit {
+    margin-top: 15px;
+    font-size: 16px;
+    opacity: 0.9;
+}
+
+/* POPUP OVERLAY */
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 5;
+}
+
+.popup {
+    background: #f2e8b8;
+    width: 280px;
+    border-radius: 16px;
+    padding: 25px;
+    text-align: center;
+}
+
+.popup h2 {
+    margin: 0;
+    font-size: 30px;
+    color: orange;
+}
+
+.popup p {
+    margin: 10px 0 20px;
+    font-size: 18px;
+}
+
+.popup button {
+    width: 45%;
+    padding: 12px;
+    margin: 5px;
+    border: none;
+    border-radius: 10px;
+    font-size: 18px;
+    color: white;
+    cursor: pointer;
+}
+
+.no { background: #e74c3c; }
+.yes { background: #6abf40; }
+</style>
+</head>
+
+<body>
+
+<div id="score">0</div>
+<div id="pauseBtn" class="top-btn">❚❚</div>
+<div id="shareBtn" class="top-btn">⬆</div>
+
+<canvas id="game"></canvas>
+
+<!-- GAME OVER SCREEN -->
+<div id="gameOverScreen">
+    <h1>GAME OVER</h1>
+    <div id="scoreBox">0</div>
+    <div id="tapRestart">Tap to Restart</div>
+    <div id="devCredit">Developed by Instagram: <b>yzff.ftw</b></div>
+</div>
+
+<!-- RESTART POPUP -->
+<div id="restartPopup" class="overlay">
+    <div class="popup">
+        <h2>RESTART?</h2>
+        <p>Play again?</p>
+        <button class="no" id="noBtn">NO</button>
+        <button class="yes" id="yesBtn">YES</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+let gravity = 0.5, jump = -8;
+let velocity = 0;
+let birdY = canvas.height / 2;
+let birdX = canvas.width / 4;
+let birdSize = 20;
+
+let pipes = [];
+let pipeWidth = 60;
+let gap = 180;
+let pipeDistance = 500;
+
+let score = 0;
+let gameOver = false;
+let paused = false;
+
+function addPipe() {
+    let top = Math.random() * (canvas.height - gap - 100) + 50;
+    pipes.push({
+        x: canvas.width,
+        top,
+        bottom: canvas.height - top - gap,
+        passed: false
+    });
+}
+
+function jumpBird() {
+    if (gameOver || paused) return;
+    velocity = jump;
+}
+
+document.addEventListener("click", jumpBird);
+document.addEventListener("touchstart", jumpBird);
+
+function endGame() {
+    gameOver = true;
+    document.getElementById("scoreBox").innerText = score;
+    document.getElementById("gameOverScreen").style.display = "block";
+}
+
+function resetGame() {
+    pipes = [];
+    velocity = 0;
+    birdY = canvas.height / 2;
+    score = 0;
+    gameOver = false;
+    document.getElementById("score").innerText = score;
+    document.getElementById("gameOverScreen").style.display = "none";
+    document.getElementById("restartPopup").style.display = "none";
+}
+
+function update() {
+    if (paused || gameOver) return;
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    velocity += gravity;
+    birdY += velocity;
+
+    ctx.fillStyle = "black";
+    ctx.beginPath();
+    ctx.arc(birdX, birdY, birdSize, 0, Math.PI*2);
+    ctx.fill();
+
+    for (let p of pipes) {
+        p.x -= 3;
+
+        ctx.fillStyle = "green";
+        ctx.fillRect(p.x,0,pipeWidth,p.top);
+        ctx.fillRect(p.x,canvas.height-p.bottom,pipeWidth,p.bottom);
+
+        if (
+            birdX+birdSize>p.x &&
+            birdX-birdSize<p.x+pipeWidth &&
+            (birdY-birdSize<p.top || birdY+birdSize>canvas.height-p.bottom)
+        ) endGame();
+
+        if (!p.passed && p.x+pipeWidth<birdX) {
+            score++;
+            p.passed = true;
+            document.getElementById("score").innerText = score;
+        }
+    }
+
+    pipes = pipes.filter(p=>p.x+pipeWidth>0);
+    if (pipes.length===0 || pipes[pipes.length-1].x<canvas.width-pipeDistance) addPipe();
+    if (birdY<0 || birdY>canvas.height) endGame();
+}
+
+function loop() {
+    update();
+    requestAnimationFrame(loop);
+}
+loop();
+
+/* TAP TO RESTART */
+document.getElementById("tapRestart").onclick = () => {
+    document.getElementById("restartPopup").style.display = "flex";
+};
+
+/* POPUP BUTTONS */
+yesBtn.onclick = resetGame;
+noBtn.onclick = () => {
+    document.getElementById("restartPopup").style.display = "none";
+};
+
+/* PAUSE */
+pauseBtn.onclick = () => {
+    paused = !paused;
+    pauseBtn.innerText = paused ? "▶" : "❚❚";
+};
+</script>
+
+</body>
+</html>
